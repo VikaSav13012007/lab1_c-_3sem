@@ -1,0 +1,68 @@
+name: C++ CI with AddressSanitizer and Release
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Install Ninja
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
+
+      #Обычная сборка
+      - name: Configure (default)
+        run: cmake --preset default
+
+      - name: Build (default)
+        run: cmake --build --preset default
+
+      #Сборка с ASan 
+      - name: Configure (asan)
+        run: cmake --preset asan
+
+      - name: Build (asan)
+        run: cmake --build --preset asan
+
+      - name: Run with AddressSanitizer
+        run: ./build/asan/lab1
+
+      #Release
+      - name: Create Release
+        id: create_release
+        if: github.event_name == 'push'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v0.0.${{ github.run_number }}
+          release_name: Release ${{ github.run_number }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        if: github.event_name == 'push'
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./build/default/lab1
+          asset_name: lab1
+          asset_content_type: application/octet-stream
